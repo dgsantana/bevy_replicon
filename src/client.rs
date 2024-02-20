@@ -3,10 +3,7 @@ pub mod diagnostics;
 
 use std::io::Cursor;
 
-use bevy::{
-    ecs::{entity::EntityHashMap, system::SystemState},
-    prelude::*,
-};
+use bevy::{ecs::entity::EntityHashMap, prelude::*};
 use bevy_renet::{
     client_connected, client_just_connected, client_just_disconnected,
     renet::{Bytes, RenetClient},
@@ -230,7 +227,10 @@ fn apply_init_message(
         ComponentsKind::Removal,
         replication_rules,
         replicon_tick,
-    )?;
+    )
+    .inspect_err(|e| {
+        error!("error apply init removal: {:?}", e);
+    })?;
     if cursor.position() == end_pos {
         return Ok(());
     }
@@ -244,7 +244,10 @@ fn apply_init_message(
         ComponentsKind::Insert,
         replication_rules,
         replicon_tick,
-    )?;
+    )
+    .inspect_err(|e| {
+        error!("error apply init insert: {:?}", e);
+    })?;
 
     Ok(())
 }
@@ -338,10 +341,14 @@ fn apply_init_components(
     replicon_tick: RepliconTick,
 ) -> bincode::Result<()> {
     let entities_len: u16 = bincode::deserialize_from(&mut *cursor)?;
-    trace!("applying {components_kind:?} components for {entities_len:?} entities");
+    debug!("applying {components_kind:?} components for {entities_len:?} entities");
     for _ in 0..entities_len {
         let entity = deserialize_entity(cursor)?;
         let data_size: u16 = bincode::deserialize_from(&mut *cursor)?;
+        debug!(
+            "reading components for {:?} with {} bytes",
+            &entity, data_size
+        );
         let mut entity = entity_map.get_by_server_or_spawn(world, entity);
         entity_ticks.insert(entity.id(), replicon_tick);
 
@@ -353,7 +360,7 @@ fn apply_init_components(
             let replication_info = unsafe { replication_rules.get_info_unchecked(replication_id) };
             match components_kind {
                 ComponentsKind::Insert => {
-                    trace!(
+                    debug!(
                         "applying component {:?} for {:?}",
                         &entity.id(),
                         &replication_info
@@ -369,7 +376,7 @@ fn apply_init_components(
                     })?
                 }
                 ComponentsKind::Removal => {
-                    trace!(
+                    debug!(
                         "removing component {:?} for {:?}",
                         &entity.id(),
                         &replication_info
@@ -399,6 +406,10 @@ fn apply_despawns(
     replicon_tick: RepliconTick,
 ) -> bincode::Result<()> {
     let entities_len: u16 = bincode::deserialize_from(&mut *cursor)?;
+    if entities_len == 0 {
+        return Ok(());
+    }
+    debug!("despawning {entities_len:?} entities");
     if let Some(stats) = stats {
         stats.despawns += entities_len as u32;
     }
