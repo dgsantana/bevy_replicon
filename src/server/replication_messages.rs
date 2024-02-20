@@ -678,12 +678,12 @@ fn can_pack(header_size: usize, base: usize, add: usize) -> bool {
 /// is serialized or not (it is not serialized if equal to zero).
 fn serialize_entity(cursor: &mut Cursor<Vec<u8>>, entity: Entity) -> bincode::Result<()> {
     let mut flagged_index = (entity.index() as u64) << 1;
-    let flag = entity.generation() > 0;
+    let flag = entity.generation() > 1;
     flagged_index |= flag as u64;
 
     cursor.write_u64_varint(flagged_index)?;
     if flag {
-        cursor.write_u32_varint(entity.generation())?;
+        cursor.write_u32_varint(entity.generation() - 1)?;
     }
 
     Ok(())
