@@ -7,7 +7,6 @@ use bevy::{
 };
 use serde::{Deserialize, Serialize};
 
-#[allow(deprecated)]
 use crate::{
     client::ClientSet,
     replicon_core::replication_rules::AppReplicationExt,
