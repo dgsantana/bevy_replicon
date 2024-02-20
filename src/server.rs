@@ -339,6 +339,7 @@ fn collect_changes(
                     let new_entity = marker_added || visibility == Visibility::Gained;
                     if new_entity || ticks.is_added(change_tick.last_run(), change_tick.this_run())
                     {
+                        info!("added component message: {:?} for {:?}", &component_info.replication_info.dont_replicate_id, &entity.id());
                         init_message.write_component(
                             &mut shared_bytes,
                             &component_info.replication_info,

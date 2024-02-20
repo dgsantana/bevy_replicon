@@ -3,7 +3,10 @@ pub mod diagnostics;
 
 use std::io::Cursor;
 
-use bevy::{ecs::entity::EntityHashMap, prelude::*};
+use bevy::{
+    ecs::{entity::EntityHashMap, system::SystemState},
+    prelude::*,
+};
 use bevy_renet::{
     client_connected, client_just_connected, client_just_disconnected,
     renet::{Bytes, RenetClient},
@@ -335,6 +338,7 @@ fn apply_init_components(
     replicon_tick: RepliconTick,
 ) -> bincode::Result<()> {
     let entities_len: u16 = bincode::deserialize_from(&mut *cursor)?;
+    trace!("applying {components_kind:?} components for {entities_len:?} entities");
     for _ in 0..entities_len {
         let entity = deserialize_entity(cursor)?;
         let data_size: u16 = bincode::deserialize_from(&mut *cursor)?;
@@ -349,9 +353,29 @@ fn apply_init_components(
             let replication_info = unsafe { replication_rules.get_info_unchecked(replication_id) };
             match components_kind {
                 ComponentsKind::Insert => {
-                    (replication_info.deserialize)(&mut entity, entity_map, cursor, replicon_tick)?
+                    trace!(
+                        "applying component {:?} for {:?}",
+                        &entity.id(),
+                        &replication_info
+                    );
+                    (replication_info.deserialize)(&mut entity, entity_map, cursor, replicon_tick)
+                        .inspect_err(|e| {
+                        error!(
+                            "error deserializing component {:?} for {:?}: {:?}",
+                            &entity.id(),
+                            &replication_info,
+                            e
+                        )
+                    })?
                 }
-                ComponentsKind::Removal => (replication_info.remove)(&mut entity, replicon_tick),
+                ComponentsKind::Removal => {
+                    trace!(
+                        "removing component {:?} for {:?}",
+                        &entity.id(),
+                        &replication_info
+                    );
+                    (replication_info.remove)(&mut entity, replicon_tick)
+                }
             }
             components_len += 1;
         }
@@ -465,6 +489,7 @@ fn deserialize_entity(cursor: &mut Cursor<&[u8]>) -> bincode::Result<Entity> {
 /// Type of components replication.
 ///
 /// Parameter for [`apply_components`].
+#[derive(Debug)]
 enum ComponentsKind {
     Insert,
     Removal,

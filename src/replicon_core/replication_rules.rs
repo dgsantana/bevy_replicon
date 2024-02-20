@@ -172,7 +172,7 @@ pub type RemoveComponentFn = fn(&mut EntityWorldMut, RepliconTick);
 pub type EntityDespawnFn = fn(EntityWorldMut, RepliconTick);
 
 /// Stores meta information about replicated component.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct ReplicationInfo {
     /// ID of [`DontReplicate<T>`] component.
     pub(crate) dont_replicate_id: ComponentId,
